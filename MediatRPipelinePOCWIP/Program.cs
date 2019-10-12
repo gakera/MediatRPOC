@@ -34,20 +34,19 @@ namespace MediatRPipelinePOCWIP
 
         private static void AddPostProcessorsForType(IServiceCollection services, Type target)
         {
-            var na = target.Name;
-            var newlist = typeof(Program).GetTypeInfo().Assembly.GetExportedTypes().Distinct();
-            var taskRe = newlist.Where(x => x.GetInterfaces().Contains(target))
+            var types = typeof(Program).GetTypeInfo().Assembly.GetExportedTypes().Distinct();
+            var requestResponses = types.Where(x => x.GetInterfaces().Contains(target))
                 .Select(x => new
                 {
                     Request = x,
                     Response = x.GetInterfaces().Where(x => x.Name.Contains("IRequest")).First().GetGenericArguments().First()
                 }).ToList();
 
-            var taskPostProcessors = newlist.Where(x => x.GetInterfaces()
+            var postProcessors = types.Where(x => x.GetInterfaces()
                 .Any(x => x.Name.Contains("IRequestPostProcessor")
                     && x.GetGenericArguments().Any(x => x.Name.Contains(target.Name)))).ToList();
 
-            taskRe.ForEach(p => taskPostProcessors.ForEach(x => services.AddTransient(typeof(IRequestPostProcessor<,>)
+            requestResponses.ForEach(p => postProcessors.ForEach(x => services.AddTransient(typeof(IRequestPostProcessor<,>)
                 .MakeGenericType(p.Request, p.Response), x)));
         }
     }
