@@ -26,20 +26,44 @@ namespace MediatRPipelinePOCWIP
                     //services.AddTransient<IRequestPostProcessor<CommandRequest, CommandResponse>, AlsoCommandRequestPostProcessor>();
                     services.AddHostedService<Worker>();
 
-                    AddPostProcessorsForType(services, typeof(IShouldExecuteTask));
-                    AddPostProcessorsForType(services, typeof(IShouldAddAuditLog));
-                    AddPostProcessorsForType(services, typeof(IShouldMeasure));
+                    AddPostProcessorsForRequestTypeMarker(services, typeof(IShouldExecuteTask));
+                    //AddPostProcessorsForRequestType(services, typeof(IShouldAddAuditLog));
+                    AddPostProcessorsForRequestTypeMarker(services, typeof(IShouldMeasure));
+
+                    AddPostProcessorsForResponseTypeMarker(services, typeof(IShouldAddAuditLog));
+
+
 
                 });
 
-        private static void AddPostProcessorsForType(IServiceCollection services, Type target)
+        private static void AddPostProcessorsForRequestTypeMarker(IServiceCollection services, Type target)
         {
             var types = typeof(Program).GetTypeInfo().Assembly.GetExportedTypes().Distinct();
             var requestResponses = types.Where(x => x.GetInterfaces().Contains(target))
                 .Select(x => new
                 {
                     Request = x,
-                    Response = x.GetInterfaces().Where(x => x.Name.Contains("IRequest")).First().GetGenericArguments().First()
+                    Response = x.GetInterfaces().Where(x => x.IsGenericType && x.GetGenericTypeDefinition() == typeof(IRequest<>)).First().GetGenericArguments().First()
+                }).ToList();
+
+            var postProcessors = types.Where(x => x.GetInterfaces()
+                .Any(x => x.Name.Contains("IRequestPostProcessor")
+                    && x.GetGenericArguments().Any(x => x.Name.Contains(target.Name)))).ToList();
+
+            requestResponses.ForEach(p => postProcessors.ForEach(x => services.AddTransient(typeof(IRequestPostProcessor<,>)
+                .MakeGenericType(p.Request, p.Response), x)));
+        }
+
+        private static void AddPostProcessorsForResponseTypeMarker(IServiceCollection services, Type target)
+        {
+            var types = typeof(Program).GetTypeInfo().Assembly.GetExportedTypes().Distinct();
+
+            var requestResponses = types.Where(x => x.GetInterfaces().Contains(target))
+                .Select(x => new
+                {
+                    Request = types.First(y => y.GetInterfaces().Any(z => z.IsGenericType && z.GetGenericTypeDefinition() == typeof(IRequest<>) 
+                        && z.GetGenericArguments().FirstOrDefault(r => r == x)?.GetInterfaces().Contains(target) == true)),
+                    Response = x
                 }).ToList();
 
             var postProcessors = types.Where(x => x.GetInterfaces()

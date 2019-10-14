@@ -11,13 +11,13 @@ namespace MediatRPipelinePOCWIP
 
     public class CommandResponse { }
 
-    public class QueryRequest : IRequest<QueryResponse>, IShouldAddAuditLog, IShouldMeasure { }
+    public class QueryRequest : IRequest<QueryResponse>, IShouldMeasure { }
 
-    public class QueryResponse { }
+    public class QueryResponse : IShouldAddAuditLog { }
 
     public class Request : IRequest<Response> { }
 
-    public class Response { }
+    public class Response : IShouldAddAuditLog { }
 
     public interface IShouldExecuteTask { }
 
@@ -121,7 +121,7 @@ namespace MediatRPipelinePOCWIP
         }
     }
 
-    public class QueryAuditLogger : IRequestPostProcessor<IShouldAddAuditLog, object>
+    public class QueryAuditLogger : IRequestPostProcessor<object, IShouldAddAuditLog>
     {
         private readonly ILogger<Program> _logger;
 
@@ -129,7 +129,8 @@ namespace MediatRPipelinePOCWIP
         {
             _logger = logger;
         }
-        public Task Process(IShouldAddAuditLog request, object response, CancellationToken cancellationToken)
+
+        public Task Process(object request, IShouldAddAuditLog response, CancellationToken cancellationToken)
         {
             _logger.LogInformation("Query Audit Logger");
             return Task.CompletedTask;
